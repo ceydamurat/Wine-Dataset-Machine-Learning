@@ -1,0 +1,395 @@
+---
+title: "Veri Biliminde R Uygulamalari Odev"
+author: "Ceyda Murat"
+date: "2024-01-18"
+output:
+  pdf_document: 
+    toc: yes
+    number_sections: yes
+---
+
+**Veri setine erişim linki:** https://archive.ics.uci.edu/dataset/109/wine
+
+"Wine" veri seti, üç farklı sınıfa ait üzüm şaraplarından elde edilen kimyasal bileşenleri içerir.Bu veri setinin özellikleri şunlardır:
+
+- **Wine:** Her bir şarap örneğinin sınıfını belirten bir değişkeni ifade eder. Bu değişken, şarap örneklerinin sınıflarını temsil eden kategorik bir değişkendir. Üç farklı sınıfa ait şarap örneklerini içerir
+- **Alcohol:** Şaraptaki alkol oranını ölçen sayısal bir özellik.
+- **Malic Acid:** Şaraptaki elma asidi miktarını ölçen sayısal bir özellik.
+- **Ash:** Şaraptaki kül miktarını ölçen sayısal bir özellik.
+- **Alcalinity(Acl):** Şaraptaki külün alkalinitesini ölçen sayısal bir özellik.
+- **Magnesium(Mg):** Şaraptaki magnezyum miktarını ölçen sayısal bir özellik.
+- **Phenols:** Şaraptaki toplam fenol miktarını ölçen sayısal bir özellik.
+- **Flavanoids:** Şaraptaki flavanoid miktarını ölçen sayısal bir özellik.
+- **Nonflavanoid Phenols:** Şaraptaki nonflavanoid fenol miktarını ölçen sayısal bir özellik.
+- **Proanthocyanins:** Şaraptaki proantosiyandin miktarını ölçen sayısal bir özellik.
+- **Color Intensity:** Şaraptaki renk yoğunluğunu ölçen sayısal bir özellik.
+- **Hue:** Şaraptaki renk tonunu ölçen sayısal bir özellik.
+- **OD:** Şarabın 280/315 oranındaki optik yoğunluğunu ölçen sayısal bir özellik.
+- **Proline:** Şaraptaki prolin miktarını ölçen sayısal bir özellik.
+
+
+# Veri setinin detaylı incelenmesi ve özet halinde açıklanması
+
+```{r, warning=F, message=F}
+library(dplyr)
+library(tidyverse)
+wine_data = read.csv("wine.csv",header = T, sep=",")
+wine_data = as_tibble(wine_data)
+head(wine_data)
+```
+```{r}
+glimpse(wine_data)
+```
+```{r}
+class(wine_data)
+```
+# Veri Ön İşleme
+## Veri öz nitelikleri
+### Seçilen veri setinde analiz için kullanılacak özelliklerin belirlenmesi
+```{r}
+features = select(wine_data, Alcohol:Proline)
+features
+```
+
+```{r}
+summary(features)
+```
+
+```{r}
+correlation_matrix = cor(features)
+head(correlation_matrix)
+```
+## Değişken seçimi ve dönüşüm işlemleri
+
+```{r}
+#Seçilen sayısal değişkenler gather fonksiyonu ile uzun formatlı hale getirildi.
+(long_data = wine_data %>% keep(is.numeric) %>% gather())
+```
+
+## dplyr paketi ile temel işlemler(veri seçme ve filtreleme)
+
+```{r}
+filter(wine_data, Alcohol > 13 & Phenols > 2)
+```
+```{r}
+wine_data %>%
+  group_by(Wine) %>%
+  summarise(count = n())
+```
+
+```{r}
+grouped_data <- wine_data %>%
+  group_by(Wine) %>%
+  summarise(mean_Alcohol = mean(Alcohol), mean_Color_Int = mean(Color.int))
+print(grouped_data)
+```
+
+# Veri Manipülasyonu
+## Veri setinin özelliklerinin analize hazır hale getirilmesi(reshaping data)
+
+```{r}
+normalized_data = scale(wine_data[, 2:ncol(wine_data)])
+head(normalized_data)
+```
+
+
+## Eksik veri ve aykırı değerlerin tespiti
+```{r}
+missing_values = wine_data %>%
+  summarise_all(~ sum(is.na(.)))
+missing_values
+```
+
+```{r}
+outliers = wine_data %>%
+  filter_all(all_vars(!is.na(.) & (. < quantile(., 0.25) - 1.5 * IQR(.) | . > quantile(., 0.75) + 1.5 * IQR(.))))
+outliers
+```
+
+## Eksik verilerin tamamlanması ya da analiz dışı bırakılması
+
+Eksik veri bulunmamıştır.
+
+
+## Veri normalizasyonu ya da standardizasyonu
+
+```{r}
+normalize_et = function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+veri_setini_normalize_et = function(veri_seti) {
+  normalize_edilmis_set = as.data.frame(lapply(veri_seti, function(col) {
+    if (is.numeric(col)) {
+      return(normalize_et(col))
+    } else {
+      return(col)
+    }
+  }))
+  return(normalize_edilmis_set)
+}
+
+normalize_data = veri_setini_normalize_et(wine_data)
+head(normalize_data)
+```
+```{r}
+standardize_et = function(x) {
+  return((x - mean(x)) / sd(x))
+}
+
+veri_setini_standardize_et = function(veri_seti) {
+  standardize_edilmis_set = as.data.frame(lapply(veri_seti, function(col) {
+    if (is.numeric(col)) {
+      return(standardize_et(col))
+    } else {
+      return(col)
+    }
+  }))
+  return(standardize_edilmis_set)
+}
+
+standardize_data = veri_setini_standardize_et(wine_data)
+head(standardize_data)
+```
+
+## Veri seçme ve filtreleme işlemlerinin gerçekleştirilmesi
+
+```{r}
+Alcohol_Category = cut(wine_data$Alcohol, breaks = c(0, 12, 14, 16), labels = c("Low", "Medium", "High"))
+```
+
+## Yeni hesaplamaların veri setine dâhil edilmesi
+```{r}
+wine_data = wine_data %>%
+  mutate(Alcohol_Category = cut(Alcohol, breaks = c(0, 12, 14, 16), labels = c("Low", "Medium", "High")))
+
+head(wine_data)
+```
+```{r}
+wine_data %>%
+  group_by(Alcohol_Category) %>%
+  summarise(count = n())
+```
+
+## Temel istatistiklerin hesaplanması
+```{r}
+summary(wine_data)
+```
+```{r, warning=F, message=F}
+library(psych)
+describe(wine_data)
+```
+
+```{r, warning=F, message=F}
+library(corrplot)
+corrplot(correlation_matrix, method = "color")
+```
+
+```{r}
+# Histogram grafiği
+hist(wine_data$Alcohol, main = "Alcohol Distribution", xlab = "Alcohol Content")
+```
+
+```{r}
+#Dağılım Grafiği
+pairs(wine_data[, 2:6], gap = 0.01)
+```
+
+# Keşifçi ve Açıklayıcı Veri Analizi
+## ggplot2 paketi ile uygun özelliklere ait veri görselleştirmenin gerçekleştirilmesi
+
+```{r,message=FALSE}
+par(wine_data, mfrow = c(1,2))
+tbl = sort(table(wine_data$Wine))
+pie(tbl)
+title("Wine Type Pie Chart")
+barplot(tbl, las = 2, cex.names = 0.7)
+title("Wine Type Bar Chart")
+```
+
+```{r}
+#Her bir sayısal değişkenin histogramı
+long_data %>% ggplot(aes(value)) + 
+  facet_wrap(~ key, scales = "free") + geom_histogram(bins = 30)
+```
+
+```{r}
+ggplot(wine_data, aes(x = Wine, y = Alcohol)) + 
+  geom_point(alpha = 0.75, col = "red") +
+  scale_x_log10() +
+  scale_y_log10() +
+  stat_smooth(method = "lm", se = T, col = "blue", size = 1.5)
+```
+
+
+```{r}
+ggplot(data = wine_data, aes(Alcohol)) + geom_density(aes(fill = Alcohol_Category), position = "stack")
+```
+
+MACHINE LEARNING ALGORITHMS
+
+KNN
+```{r}
+library(class)
+```
+
+```{r}
+set.seed(123)  
+index = sample(1:nrow(wine_data), 0.7 * nrow(wine_data))
+train_data = wine_data[index, ]
+test_data = wine_data[-index, ]
+```
+
+```{r}
+k <- 3  
+knn_model = knn(train = train_data[, 2:ncol(normalize_data)], 
+                 test = test_data[, 2:ncol(normalize_data)], 
+                 cl = train_data$Wine, 
+                 k = k)
+```
+
+```{r}
+# Confusion matrix
+conf_matrix = table(Actual = test_data$Wine, Predicted = knn_model)
+conf_matrix
+```
+```{r}
+# Accuracy değeri
+accuracy = sum(diag(conf_matrix)) / sum(conf_matrix)
+cat("Accuracy:", accuracy, "\n")
+```
+```{r}
+#VERİLERE GÖRE HANGİ TÜR ŞARAP OLDUĞUNU TAHMİN ETME
+# Yeni veri örneği
+new_data <- data.frame(
+  Alcohol = c(13.5),  # Örnek öznitelik değerleri
+  Malic_Acid = c(2.3),
+  Ash = c(2.5),
+  Acl = c(20),
+  Mg = c(100),
+  Phenols = c(1.5),
+  Flavanoids = c(0.8),
+  Nonflavanoid.phenols = c(0.2),
+  Proanth = c(1.5),
+  Color.int = c(6.0),
+  Hue = c(0.9),
+  OD = c(2.5),
+  Proline = c(780)
+)
+
+# Tahmin yapma
+prediction <- knn(
+  train = train_data[, 2:ncol(normalize_data)],  # Eğitim veri seti
+  test = new_data,  # Tahmin yapılacak yeni veri
+  cl = train_data$Wine,  # Etiketler
+  k = 3  # K değeri
+)
+
+# Tahmin sonucunu yazdırma
+print(prediction)
+
+```
+
+Logistic Regression
+
+```{r}
+set.seed(123)  
+index = sample(1:nrow(wine_data), 0.7 * nrow(wine_data))
+train_data = wine_data[index, ]
+test_data = wine_data[-index, ]
+```
+
+```{r, warning=FALSE}
+glm_model = glm(as.factor(Wine) ~ ., data = train_data, family = "binomial")
+```
+
+```{r}
+glm_predictions = predict(glm_model, test_data, type = "response")
+```
+
+```{r}
+glm_predictions = ifelse(glm_predictions > 0.5, "Class_2", "Class_1")
+```
+
+```{r}
+# Confusion matrix
+conf_matrix_glm = table(Actual = test_data$Wine, Predicted = glm_predictions)
+conf_matrix_glm
+```
+
+```{r}
+# Accuracy değeri
+accuracy_glm = sum(diag(conf_matrix_glm)) / sum(conf_matrix_glm)
+cat("Logistic Regression Accuracy:", accuracy_glm, "\n")
+```
+
+DECISION TREE
+
+```{r}
+library(rpart)
+```
+
+```{r}
+set.seed(123)  
+index = sample(1:nrow(wine_data), 0.7 * nrow(wine_data))
+train_data = wine_data[index, ]
+test_data = wine_data[-index, ]
+```
+
+```{r}
+tree_model <- rpart(as.factor(Wine) ~ ., data = train_data, method = "class")
+```
+
+```{r}
+par(mar = c(1, 1, 1, 1))  
+plot(tree_model)
+text(tree_model)
+```
+
+```{r}
+tree_predictions = predict(tree_model, test_data, type = "class")
+```
+
+```{r}
+# Confusion matrix 
+conf_matrix_tree = table(Actual = test_data$Wine, Predicted = tree_predictions)
+conf_matrix_tree
+```
+```{r}
+# Accuracy değeri
+accuracy_tree = sum(diag(conf_matrix_tree)) / sum(conf_matrix_tree)
+cat("Decision Tree Accuracy:", accuracy_tree, "\n")
+```
+
+SVM 
+
+```{r}
+library(e1071)
+wine_data$Wine = as.factor(wine_data$Wine)
+```
+
+```{r}
+set.seed(123)
+indices = sample(1:nrow(wine_data), 0.7 * nrow(wine_data))
+train_data = wine_data[indices, ]
+test_data = wine_data[-indices, ]
+```
+
+```{r}
+svm_model = svm(Wine ~ ., data = train_data, kernel = "linear")
+predictions = predict(svm_model, newdata = test_data)
+```
+
+```{r}
+# Confusion matrix 
+conf_matrix_svm = table(Actual = test_data$Wine, Predicted = predictions)
+conf_matrix_svm
+```
+```{r}
+# Accuracy değeri
+accuracy = sum(predictions == test_data$Wine) / nrow(test_data)
+cat("SVM Accuracy:", accuracy, "\n")
+```
+
+
+
