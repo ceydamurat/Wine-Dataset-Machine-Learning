@@ -1,2 +1,2 @@
-# Wine-Dataset-Machine-Learning
+# Wine-Machine-Learning
 Feature Engineering, Data Cleaning, Visualization, Data Preprocessing Preprocessing, Machine Learning Algorithms
